@@ -1,0 +1,117 @@
+\name{DiffNet.FDR}
+\alias{DiffNet.FDR}
+%- Also NEED an '\alias' for EACH other topic documented here.
+\title{
+Differential network analysis with false discovery rate control
+}
+\description{
+This function is implemented to infer diffferential network based on Gaussian graphical models. The differential network can be determined as the difference of partial correlations or the difference of precision matrices. The false discovery rate can be controlled using a multiple testing procedure.
+}
+\usage{
+DiffNet.FDR(X, group, alpha = 0.2, test.type = "pcor", parallel = F, nCpus = 4)
+}
+\arguments{
+  \item{X}{
+  data matrix for which the rows represent the samples and the columns represent the variables.}
+  \item{group}{
+  vector which defines two groups of samples under comparison.}
+ \item{alpha}{
+  desired FDR level (\eqn{0 \leq \alpha \leq 1}), default to 0.2.}
+ \item{test.type}{
+  parameter to decide which approach is selected to define the differential network, default to "pcor".
+  If test.type = "pcor", the differential network will be inferred based on the difference of partial correlations.
+  If test.type = "pmat", the differential network will be inferred based on the difference of precicion matrices.}
+ \item{parallel}{
+  logical value to indicate if the process should be run parallelly in multiple threads, default to FALSE.}
+ \item{nCpus}{
+  number of (maximum) cores to use for parallel execution, default to 4.}
+}
+\details{
+For details, please refer to Supplementary Information for the article: DiffNetFDR: Differential
+network analysis with false discovery rate control.
+}
+
+\value{
+\item{Diff.edge}{the adjacency matrix of the estimated differential network.}
+\item{W}{the values of the statistics.}
+\item{t}{the threshold level such that H0 is rejected.}
+\item{Diff.net}{the estimated differential network over all nodes.}
+\item{Diff.net.connected}{the estimated differential network over only the connected nodes.}
+}
+\references{
+Xiao-Fei Zhang, Le Ou-Yang, Shuo Yang, Xiaohua Hu and Hong Yan, DiffNetFDR:
+Differential network analysis with false discovery rate control, 2018\cr
+Yin Xia, Tianxi Cai and T. Tony Cai, Testing differential networks with applications to the detection of gene-gene interactions, Biometrika, 102(2): 247-266, 2015\cr
+Weidong Liu, Structural similarity and difference testing on multiple sparse Gaussian graphical models, Annals of Statistics, 45(6): 2680-2707, 2017.
+}
+\author{
+\packageAuthor{DiffNetFDR}
+Maintainer: \packageMaintainer{DiffNetFDR}
+}
+
+%% ~Make other sections like Warning with \section{Warning }{....} ~
+
+\seealso{
+\code{\link{TCGA.BRCA}}, \code{\link{GSE13159.AML}}
+}
+
+\examples{
+rm(list=ls())
+data("TCGA.BRCA")
+
+result = DiffNet.FDR(TCGA.BRCA$X,TCGA.BRCA$group, alpha = 0.2, test.type = "pcor")
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*1.2, layout =layout_with_fr,
+               vertex.color="red", vertex.group.cex=0.8, edge.width =1.2, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.
+# grab the coordinates from tkplot
+loc <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=loc, vertex.size= degree(Diff.net.connected)*1.2, vertex.color="red",
+     vertex.group.cex=0.8, edge.width =1.2, edge.color="orange")
+
+
+rm(list=ls())
+data("TCGA.BRCA")
+result = DiffNet.FDR(TCGA.BRCA$X,TCGA.BRCA$group, alpha = 0.2, test.type = "pmat")
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*1.2, layout =layout_with_fr,
+               vertex.color="red", vertex.group.cex=0.8, edge.width =1.2, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.
+# grab the coordinates from tkplot
+loc <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=loc, vertex.size= degree(Diff.net.connected)*1.2, vertex.color="red",
+     vertex.group.cex=0.8, edge.width =1.2, edge.color="orange")
+
+
+
+rm(list=ls())
+data("GSE13159.AML")
+
+result = DiffNet.FDR(GSE13159.AML$X,GSE13159.AML$group, alpha = 0.2, test.type = "pcor")
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*2, layout =layout_with_fr,
+               vertex.color="red", vertex.group.cex=0.8, edge.width =1.2, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.
+# grab the coordinates from tkplot
+loc <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=loc, vertex.size= degree(Diff.net.connected)*2, vertex.color="red",
+     vertex.group.cex=0.8, edge.width =1.2, edge.color="orange")
+
+
+rm(list=ls())
+data("GSE13159.AML")
+result = DiffNet.FDR(GSE13159.AML$X,GSE13159.AML$group, alpha = 0.2, test.type = "pmat")
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*2, layout =layout_with_fr,
+               vertex.color="red", vertex.group.cex=0.8, edge.width =1.2, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.
+# grab the coordinates from tkplot
+loc <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=loc, vertex.size= degree(Diff.net.connected)*2, vertex.color="red",
+     vertex.group.cex=0.8, edge.width =1.2, edge.color="orange")
+}
+
