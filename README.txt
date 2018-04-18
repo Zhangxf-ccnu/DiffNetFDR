@@ -7,8 +7,8 @@ This archive contains
 (1) DiffNetFDR_1.0.tar: Package source. 
 (2) pkg: subdirectory that contains the R package.
 (3) shiny: subdirectory that contains the Shiny application.
-(2) DiffNetFDR-manual.pdf Reference manual.
-(3) example.R Examples for step by step usages for the DiffNetFDR package.
+(4) DiffNetFDR-manual.pdf Reference manual.
+(5) example.R Examples for step by step usages for the DiffNetFDR package.
 
 The DiffNetFDR package has the following R-package dependencies: glmnet, igraph, parallel.
 The depends are automatically installed along with DiffNetFDR. You can use the following commands to install DiffNetFDR from GitHub.
