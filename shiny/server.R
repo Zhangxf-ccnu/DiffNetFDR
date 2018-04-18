@@ -1,9 +1,6 @@
 # server.R
 library(DiffNetFDR)
 library(ggplot2)
-library(plyr)
-library(stringr)
-
 
 shinyServer(
   
