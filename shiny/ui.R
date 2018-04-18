@@ -2,6 +2,8 @@
 library(shiny)
 library(shinyBS)
 library(visNetwork)
+library(DiffNetFDR)
+
 
 shinyUI(navbarPage("DiffNetFDR-Shiny", id="master",
                    tabPanel("Job Setup",
