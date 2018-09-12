@@ -1,0 +1,147 @@
+# ui.R
+library(shiny)
+library(shinyBS)
+library(visNetwork)
+
+shinyUI(navbarPage("iDINGO-Shiny", id="master",
+                   tabPanel("Job Setup",
+                            fluidPage(
+                              fluidRow(
+                                column(4, 
+                                       fileInput("expr",
+                                                    label = "First Omic Dataset",
+                                                    multiple = FALSE),
+                                       bsTooltip("expr",
+                                                 "Matrix of expression data, where rows correspond to genes/proteins/etc, and columns correspond to samples",
+                                                 placement = "bottom", trigger = "hover", options = NULL)
+                                ),
+                                column(8,
+                                       textInput("exprName1", label = "", value = "", width = NULL, placeholder = "Name for Set 1"),
+                                       bsTooltip("exprName1",
+                                                 "A simple name for this dataset, such as 'RNA' or 'Protein'",
+                                                 placement = "bottom", trigger = "hover", options = NULL)
+                                )),
+                                
+                                fluidRow(
+                                  column(4, 
+                                         fileInput("expr2",
+                                                   label = "Second Omic Dataset",
+                                                   multiple = FALSE),
+                                         bsTooltip("expr2",
+                                                   "Matrix of expression data, where rows correspond to genes/proteins/etc, and columns correspond to samples",
+                                                   placement = "bottom", trigger = "hover", options = NULL)
+                                  ),
+                                  column(8,
+                                         textInput("exprName2", label = "", value = "", width = NULL, placeholder = "Name for Set 2"),
+                                         bsTooltip("exprName2",
+                                                   "A simple name for this dataset, such as 'RNA' or 'Protein'",
+                                                   placement = "bottom", trigger = "hover", options = NULL)
+                                  )),
+                                  fluidRow(
+                                    column(4, 
+                                           fileInput("expr3",
+                                                     label = "Third Omic Dataset",
+                                                     multiple = FALSE),
+                                           bsTooltip("expr3",
+                                                     "Matrix of expression data, where rows correspond to genes/proteins/etc, and columns correspond to samples",
+                                                     placement = "bottom", trigger = "hover", options = NULL)
+                                    ),
+                                    column(8,
+                                           textInput("exprName3", label = "", value = "", width = NULL, placeholder = "Name for Set 3"),
+                                           bsTooltip("exprName3",
+                                                     "A simple name for this dataset, such as 'RNA' or 'Protein'",
+                                                     placement = "bottom", trigger = "hover", options = NULL)
+                                    )),
+  
+                            fileInput("phen",
+                                      label = "Sample Group Classifiers",
+                                      multiple = FALSE),
+                            bsTooltip("phen",
+                                      "This file should contain a group classifier for each sample, in the same order as in the expression dataset(s)",
+                                      placement = "bottom", trigger = "hover", options = NULL),
+                            
+                            fluidRow(
+                              column(4, 
+                                     fileInput("database",
+                                               label = "Gene Set Database (optional)",
+                                               multiple = FALSE),
+                                     bsTooltip("database",
+                                               ".gmt or .rds file containing a list of gene sets for filtering. All data sets will be filtered using the chosen gene set, so gene identifiers must be in the same form.",
+                                               placement = "bottom", trigger = "hover", options = NULL)
+                              ),
+                              column(8,
+                                     br(),
+                                     actionButton("loadDB",
+                                                  label = "Load gene set database")
+                              )),
+                            
+                            uiOutput("geneset"),
+                            
+                            numericInput("numBoot",
+                                         label = "Number of Bootstraps",
+                                         value = 100, step = 10),
+                            
+                            numericInput("numCore",
+                                         label = "Number of Cores",
+                                         value = 1, step = 1),
+                            
+                            actionButton("run",
+                                         label = "Run DINGO",
+                                         style = "color: #fff; background-color: #337ab7; border-color: #2e6da4")
+                   )),
+                   tabPanel("Visualize Results", 
+                            fluidPage(
+                                      sidebarLayout(
+                                        sidebarPanel(
+                                          numericInput("thresh",
+                                                       label = "Threshold for edge inclusion",
+                                                       min=0, max=1, value=0.05, step=0.001),
+                                          radioButtons("threshType", "Parameter to use for threshold",
+                                                       c("p-value" = "p.val",
+                                                         "differential score" = "diff.score")),
+                                          
+                                          numericInput("hubs",
+                                                       label = "Number of rows for table",
+                                                       min=1, max=30, value=10),
+                                          
+                                          radioButtons("layout", "Network layout",
+                                                       c("Circular" = "circular",
+                                                         "Fruchterman-Reingold" = "layout_with_fr"),
+                                                       selected = "circular")
+                                        ),
+                                        mainPanel(
+                                          
+                                          fluidRow(
+                                            column(8,
+                                                   visNetworkOutput("network", width="100%"),
+                                                   plotOutput("correlations", width = "100%")
+                                            ),
+                                            
+                                            column(4,
+                                                   textOutput("summary1"),
+                                                   textOutput("summary2"),
+                                                   br(),
+                                                   tableOutput("table")
+                                            )
+                                          )
+                                        )
+                                      )
+                            )
+                   ),
+                   navbarMenu("More",
+                              tabPanel("Download Results",
+                                       radioButtons("fileformat",
+                                                    label = "Output File Format",
+                                                    choices = c(".rds (R object file)" = "rds",
+                                                                ".txt (tab-delimited text)" = "txt",
+                                                                ".csv (comma-separated values)" = "csv"),
+                                                    selected = "rds"),
+                                       textInput("dlname",
+                                                 label = "Output File Name (Do not include file extension)"),
+                                       downloadButton("download",
+                                                      label = "Download")
+                                       )
+                              
+                              )
+)
+)

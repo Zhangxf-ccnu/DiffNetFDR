@@ -1,0 +1,28 @@
+\name{DiffNetFDR-package}
+\alias{DiffNetFDR-package}
+\alias{DiffNetFDR}
+\docType{package}
+\title{
+\packageTitle{DiffNetFDR}
+}
+\description{
+DiffNetFDR is an R package for identifying gene network rewiring between two different conditions from gene expression data.
+}
+\details{
+DiffNetFDR integrates four influential differential graphical models which identify gene network rewiring through estimating the difference of condition specific precision matrices: fused graphical lasso (FGL),  lasso penalized D-Trace loss (Dtrace), perturbed-node joint graphical lasso (PNJGL) and prior information-induced differential network analysis (pDNA). DiffNetFDR also provides three approaches to compute the condition specific covariance matrices (Pearson, Spearman and Kendall). To fit normal data using Gaussian graphical models, we suggest using Pearson correlation. To fit non-normal data using nonparanormal graphical models, Spearman's rho or Kendall's tau correlation is suggested. DiffNetFDR outputs the estimated differential networks as igraph graphs, which can be visualized in both non-interactive and interactive manners using the igraph R package.
+}
+\author{
+\packageAuthor{DiffNetFDR}
+
+Maintainer: \packageMaintainer{DiffNetFDR}
+}
+
+\references{
+Xiao-Fei Zhang, Le Ou-Yang, Shuo Yang, Xiaohua Hu and Hong Yan, DiffNetFDR: An R package for differential network analysis with false discovery rate control, 2018\cr
+Yin Xia, Tianxi Cai and T. Tony Cai, Testing differential networks with applications to the detection of gene-gene interactions, Biometrika, 102(2): 247-266, 2015\cr
+Weidong Liu, Structural similarity and difference testing on multiple sparse Gaussian graphical models, Annals of Statistics, 45(6): 2680-2707, 2017.
+}
+
+\seealso{
+\code{\link{TCGA.BRCA}}, \code{\link{GSE13159.AML}}
+}

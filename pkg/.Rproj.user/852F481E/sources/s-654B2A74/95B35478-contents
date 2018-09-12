@@ -1,0 +1,73 @@
+\name{DiffNet.FDR}
+\alias{DiffNet.FDR}
+%- Also NEED an '\alias' for EACH other topic documented here.
+\title{
+Differential network analysis with false discovery rate control
+}
+\description{
+This function is implemented to infer diffferential network using Gaussian graphical model. Differential network can be determined based on both the difference of partial correlation coefficients and the difference of precision matrices. The false discovery rate can be controlled.
+}
+\usage{
+DiffNet.FDR(X, Y, alpha = 0.2, test.type = "pcor", parallel = F, nCpus = 4)
+}
+\arguments{
+  \item{X}{
+  data matrix corresponding to the first condition. The rows represent the observations, and the columns represent the   variables.}
+  \item{Y}{
+  data matrix corresponding to the second condition. The rows represent the observations, and the columns represent the variables.}
+ \item{alpha}{
+  pre-specified level at which the FDR will be controlled, default to 0.2.}
+ \item{test.type}{
+  parameter to decide which approach is selected to infer differential network, default to "pcor".
+  If test.type = "pcor", differential network will be inferred based on difference of partial correlation coefficients.
+  If test.type = "pmat", differential network will be inferred based on difference of precicion     matrices.}
+ \item{parallel}{
+  logical value to indicate if the process should be run parallelly in multiple threads, default to TRUE}
+ \item{nCpus}{
+  number of (maximum) cores to use for parallel execution, default to 4}
+}
+\details{
+If necessary, more details than the description above
+}
+\value{
+\item{Diff.edge}{the adjacency matrix of the estimated differential network.}
+\item{W}{the value of the statistic.}
+\item{t}{the threshold level such that H0 is rejected.}
+\item{Diff.net}{the estimated differential network over all nodes.}
+\item{Diff.net.connected}{the estimated differential network over only the connected nodes.}
+}
+\references{
+Xiao-Fei Zhang, Le Ou-Yang, Shuo Yang, Xiaohua Hu and Hong Yan, DiffNetFDR: An R package for differential network analysis with false discovery rate control, 2018\cr
+Yin Xia, Tianxi Cai and T. Tony Cai, Testing differential networks with applications to the detection of gene-gene interactions, Biometrika, 102(2): 247-266, 2015\cr
+Weidong Liu, Structural similarity and difference testing on multiple sparse Gaussian graphical models, Annals of Statistics, 45(6): 2680-2707, 2017.
+}
+\author{
+\packageAuthor{DiffNetFDR}
+Maintainer: \packageMaintainer{DiffNetFDR}
+}
+
+%% ~Make other sections like Warning with \section{Warning }{....} ~
+
+\seealso{
+\code{\link{TCGA.BRCA}}, \code{\link{GSE13159.AML}}
+}
+
+\examples{
+data(GSE13159.AML)
+X = GSE13159.AML$X[[1]]
+Y = GSE13159.AML$X[[2]]
+result=DiffNet.FDR(X,Y, alpha = 0.2, test.type = "pcor")
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*1.5, layout =layout_with_fr,
+               vertex.color="red", vertex.label.cex=0.8, edge.width =1.5, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.
+# grab the coordinates from tkplot
+l.dtrace <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=l.dtrace, vertex.size= degree(Diff.net.connected)*1.5, vertex.color="red",
+     vertex.label.cex=0.9, edge.width =1.5, edge.color="orange")
+}
+% Add one or more standard keywords, see file 'KEYWORDS' in the
+% R documentation directory.
+\keyword{ ~kwd1 }% use one of  RShowDoc("KEYWORDS")
+\keyword{ ~kwd2 }% __ONLY ONE__ keyword per line

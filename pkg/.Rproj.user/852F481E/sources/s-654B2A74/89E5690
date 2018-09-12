@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1521000756557.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "89E5690",
+    "lastKnownWriteTime" : 1521029072,
+    "last_content_update" : 1521029072446,
+    "path" : "D:/work/paper/my/DiffNetTest/R_package/shiny_DiffNetFDR/ui.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "68,44",
+        "scrollLine" : "53"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

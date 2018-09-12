@@ -16,7 +16,9 @@ DiffNet.FDR(X, group, alpha = 0.2, test.type = "pcor", parallel = F, nCpus = 4)
   \item{group}{
   vector which defines two groups of samples under comparison.}
  \item{alpha}{
-  desired FDR level (\eqn{0 \leq \alpha \leq 1}), default to 0.2.}
+  desired FDR level (\eqn{0 \leq \alpha \leq 1}), default to 0.2.  alpha can be a scalar or vetcor.
+  If alpha is a scale, a signle differential network will be generated. If alapha is a vector, multiple
+  differential networks correspoding to different FDR levels will be generated.}
  \item{test.type}{
   parameter to decide which approach is selected to define the differential network, default to "pcor".
   If test.type = "pcor", the differential network will be inferred based on the difference of partial correlations.
@@ -26,10 +28,6 @@ DiffNet.FDR(X, group, alpha = 0.2, test.type = "pcor", parallel = F, nCpus = 4)
  \item{nCpus}{
   number of (maximum) cores to use for parallel execution, default to 4.}
 }
-\details{
-For details, please refer to Supplementary Information for the article: DiffNetFDR: Differential
-network analysis with false discovery rate control.
-}
 
 \value{
 \item{Diff.edge}{the adjacency matrix of the estimated differential network.}
@@ -38,6 +36,13 @@ network analysis with false discovery rate control.
 \item{Diff.net}{the estimated differential network over all nodes.}
 \item{Diff.net.connected}{the estimated differential network over only the connected nodes.}
 }
+
+\details{
+If alpha is a vector, a list of multiple differential networks correspoding to different
+FDR levels will be return.
+}
+
+
 \references{
 Xiao-Fei Zhang, Le Ou-Yang, Shuo Yang, Xiaohua Hu and Hong Yan, DiffNetFDR:
 Differential network analysis with false discovery rate control, 2018\cr

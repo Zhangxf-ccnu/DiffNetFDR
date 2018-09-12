@@ -1,0 +1,858 @@
+#################
+# Poisson Graphical Models functions - depends on huge and glmnet packages
+require('huge')
+require('glmnet')
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: LPGM.select
+#	Desription: ???
+#	Required arguments:
+#		X				a pxn data matrix
+# 	Optional argumanets:
+#		method			specification of the variation of PGM, default to "LPGM"
+#		link			??, default to "log"
+#		N				number of iteration on cross-validation, default to 100
+#		beta			threshold value on sparsity of the network to filter out dense network
+#		lmin			minimum lambda value, default to 0.01
+#		nlams			number of lambda for regularization
+#		lambda.path		vector lambda used for regularization
+#		parallel		logical value to indicate if the process should be run parallelly in multiple threads, default to TRUE
+#		nCpus			number of (maximum) cores to use for parallel execution, default to 4
+#	Returned values:
+#		ghat	- A list of:
+#				v				- vector of (nlams) v-variability from the cross-validation??
+#				lambda.path		- vector lambda used for regularization
+#				opt.lambda		- lambda value that gives the optimal network (network with maximum variability)
+#				network			- a list of pxp coefficient matrix along the regularization.  
+#				opt.index 		- index of the regularization value that gives the optimal network  
+#	Example:
+#		?? Worknote_2.R
+#-n = 200
+#-p = 50
+#-gdata = huge.generator(n,d=p, graph="scale-free",v=0.1,u=0.01)
+#-smatrix  = matrix(sample(c(1,-1), nrow(gdata$theta)*ncol(gdata$theta), replace =T), nrow = nrow(gdata$theta) )
+#-simData = WPGMSim(n,p,R=10, alpha = rep(0,p), Theta = 0.1*as.matrix(gdata$theta)*smatrix, maxit = 100 )
+#-
+#-# Run LPGM
+#-lpgm.path.all = wooi.LPGM.select(t(simData), nlams=20, N=10, beta=0.05, parallel=F)
+#-str(lpgm.path.all)
+#-
+#-opt.net = as.matrix(lpgm.path.all$network[[lpgm.path.all$opt.index]])
+#-# GenGraphGml(opt.net, fn=paste("Worknote/worknote_2.lpgm.optNet", opt.ind, ".gml", sep=""), 0.00001, "adj")
+#-
+#-lpgm.path.all.p = wooi.LPGM.select(t(simData), nlams=20, N=10, beta=0.05, nCpus=2, parallel=T)
+#-str(lpgm.path.all.p)
+#-
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+LPGM.select <- function(X,method="LPGM",N=100,beta=0.05, lmin = 0.01, nlams=20, lambda.path=NULL ,parallel=T,nCpus=4){
+	require('huge')
+	require('glmnet')
+	
+	if(is.null(lambda.path) ){
+		lmax = myglmnet.max(X)
+ 		lambda.path = exp(seq(log(lmax),log(lmin),l=nlams));
+	}
+
+	if(parallel == T){
+		b = min(c(10*sqrt(ncol(X)), 0.8*ncol(X))) 
+		ghat=list()
+		ghat.path=list()
+		ghat.path$path=vector("list",length(lambda.path))
+		v=c()
+
+		for(i in 1:N){
+			cat(paste(method, ": Conducting sampling ... in progress: ", floor(100*(i/N)), "%", collapse=""),"\r")
+			flush.console()
+			
+			glmpois.good <- 1
+			
+			while(glmpois.good){
+				# Make sure sample with no gene with all zero values
+				good <- 1
+				while(good){
+					index = sample(1:ncol(X),b,replace=F)
+					#-- if(sum(apply(X[,index], 1, sum)==0)==0){
+					if(sum(apply(X[,index], 1, function(x) length(unique(x))==1))==0){
+						good <- 0
+					}
+				}
+				
+				tryCatch(
+						{
+							ghat.path$raw= glmpois(X[,index],lambda=lambda.path,parallel=T,nCpus=nCpus)	
+							glmpois.good <- 0
+						},
+						error = function(e) {
+							cat("glmnet returns empty model. Try again.")
+						}
+				)
+			}
+			
+			for(j in 1:length(lambda.path)){
+				tmp=ghat.path$raw[,,j]
+				tmp[abs(tmp)<1e-06]=0
+				tmp[abs(tmp)>1e-06]=1
+				diag(tmp)=0
+				if(is.null(ghat.path$path[[j]])){
+					ghat.path$path[[j]]=tmp;
+				}else{
+					ghat.path$path[[j]]=ghat.path$path[[j]]+tmp	
+				}
+					
+			}
+		}
+		
+		for(i in 1:length(lambda.path)){
+			D=ghat.path$path[[i]]
+			D=D/N
+			D=2*D*(1-D)
+			v=c(v,mean(D[upper.tri(D)]))	
+		}
+		
+		v=cummax(v)
+		ghat$v=v
+		ghat$lambda.path = lambda.path
+		ghat$opt.lambda = lambda.path[which(v==max(v[v<beta]))]	
+			
+		ghat$network = glmpois(X,lambda=lambda.path,parallel=T,nCpus=nCpus)
+		ghat$network =lapply(1:nlams,function(r){return(ghat$network[,,r])})
+		ghat$opt.index = which(v==max(v[v<beta]))
+		
+		cat(paste("\n", method, " Completed.", "\n", sep=""))
+		return(ghat)
+	}
+	
+	
+	if(parallel == F){
+		b = min(c(10*sqrt(ncol(X)), 0.8*ncol(X))) 
+		ghat=list()
+		v=c()
+		
+		for( j in 1:length(lambda.path)){
+			#cat ("j=", j, " \t")
+			cat(paste(method, ": Conducting sampling ... in progress: ", floor(100*(j/length(lambda.path))), "%", collapse=""),"\r")
+			flush.console()
+			D=matrix(0,nrow=nrow(X),ncol=nrow(X))
+			
+			for(i in 1:N){
+				#cat("\n i=", i, "\t")
+				glmpois.good <- 1
+				
+				while(glmpois.good){
+					# Make sure sample with no gene with all zero values
+					good <- 1
+					while(good){
+						index = sample(1:ncol(X),b,replace=F)
+						if(sum(apply(X[,index], 1, function(x) length(unique(x))==1))==0){
+							good <- 0
+						}
+					}
+					
+					tryCatch(
+						{
+							tmp=glmpois(X[,index],lambda=lambda.path[j],parallel=F)
+							glmpois.good <- 0
+						},
+						error = function(e) {
+							cat("glmnet returns empty model. Try again.\n")
+						}
+					)
+				} 
+				
+				tmp[abs(tmp)<1e-06]=0
+				tmp[abs(tmp)>1e-06]=1
+				D=D+tmp
+			}
+			
+			D=D/N
+			D=2*D*(1-D)
+			v=c(v,mean(D[upper.tri(D)]))			
+		}
+		
+		v=cummax(v)
+		ghat$v=v
+		ghat$lambda.path = lambda.path
+		ghat$opt.lambda = lambda.path[which(v==max(v[v<beta]))]	
+		ghat$network = glmpois(X,lambda=lambda.path,parallel=parallel,nCpus=nCpus)
+		ghat$network =lapply(1:nlams,function(r){return(ghat$network[,,r])})
+		ghat$opt.index = which(v==max(v[v<beta]))
+		
+		cat(paste("\n", method, " Completed.", "\n", sep=""))
+		
+		return(ghat)
+	}
+		
+}
+#
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: TPGM.select
+#	Desription: ???
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+TPGM.select <- function(X, R, N=100,beta=0.05, lmin = 0.01, nlams=20, lambda.path=NULL ,parallel=T,nCpus=4){
+	require('huge')
+	require('glmnet')
+	
+	if (R < 0){
+		cat("ERROR: Truncating threshold R should be positive. \n")
+		ghat = NULL
+		return(ghat)
+	}
+	
+	# Should we check for other condition on R??
+	
+	# Transform the matrix with values truncated at R
+	Xorig <- X
+	X[X > R] <- R
+	
+	return(LPGM.select(X, method="TPGM", N=N, beta=beta, lmin=lmin, nlams=nlams, lambda.path=lambda.path, parallel=parallel, nCpus=nCpus))
+}
+#
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: SPGM.select
+#	Desription: ???
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+SPGM.select <- function(X, R, R0=0, N=100,beta=0.05, lmin = 0.01, nlams=20, lambda.path=NULL ,parallel=T,nCpus=4){
+	require('huge')
+	require('glmnet')
+	
+	if (R < 0){
+		cat("ERROR: Truncating threshold R should be positive. \n")
+		ghat = NULL
+		return(ghat)
+	}
+	
+	# Generate the matrix with values sublinearly truncated between R (upepr bound) and R0 (lower bound)
+	Xorig <- X
+	X <- round(Bsublin(X, R, R0))
+	
+	return(LPGM.select(X, method="SPGM", N=N, beta=beta, lmin=lmin, nlams=nlams, lambda.path=lambda.path, parallel=parallel, nCpus=nCpus))
+
+}
+#
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: myglmnet.max
+#	Desription: function to obtain the lambda through binary search between zero to the maximum 
+#				of X'X in search for the smallest value that gives a null model (empty network)
+#	Required arguments:
+#		X				a pxn data matrix
+# 	Optional argumanets:
+#		link			??, default to "log"
+#		delta			shift-size for the binary search, default to 0.01
+#	Returned values:
+#		mid		the maximum lambda - regularization parameter that will return a null model.
+#	Example:
+#		?? Worknote_2.R
+#-n = 200
+#-p = 50
+#-gdata = huge.generator(n,d=p, graph="scale-free",v=0.1,u=0.01)
+#-smatrix  = matrix(sample(c(1,-1), nrow(gdata$theta)*ncol(gdata$theta), replace =T), nrow = nrow(gdata$theta) )
+#-simData = WPGMSim(n,p,R=10, alpha = rep(0,p), Theta = 0.1*as.matrix(gdata$theta)*smatrix, maxit = 100 )
+#-
+#-lmax = myglmnet.max(t(simData))
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+myglmnet.max <-function(X, link ="log",delta=0.01){
+	minlambda =0;
+	maxlambda = lambdaMax(t(X));
+	### binary search the interval
+	while(1){
+		mid = (minlambda+maxlambda)/2
+		tmp=glmpois(X,mid)
+		tmp[abs(tmp)<1e-06]=0
+		tmp[abs(tmp)>1e-06]=1
+		
+		if(sum(tmp)>0){
+			minlambda = mid+delta
+		}else{
+			maxlambda = mid-delta
+		}			
+		
+		if(abs(maxlambda-minlambda)<delta){
+			return(mid);
+		}
+	}
+}
+
+
+
+#
+#
+### poisson based mb neigbhorhood selection with X p by n and fixed lambda for all. 
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: glmpois
+#	Desription: poisson based mb neigbhorhood selection with X p by n and fixed lambda for all. 
+#	Required arguments:
+#		X			a pxn data matrix
+#		lambda		regularization parameter, could be a single numerical value or a vector of numeric values (for the whole regularization path)#					
+# 	Optional argumanets:
+#		parallel	logical value to indicate if the process should be run parallelly in multiple threads, default to TRUE
+#		nCpus		number of (maximum) cores to use for parallel execution, default to 4
+#	Returned values:
+#		ghat		a specific lambda is given, ghat is a 2D pxp matrix of coefficients. 
+#					If the lambda for the whole regularization path is input, a 3D (pxpx length of regularization path) matrix is returned, where ghat[,,i] is the coefficient matrix of the p variables for the i-lambda
+#					
+#	Example:
+# 		???
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+glmpois <- function(X, lambda, parallel=F, nCpus = 4){
+	
+	if(length(lambda)>1){
+		ghat = array(0,dim=c(nrow(X),nrow(X),length(lambda)))
+		
+		if(parallel){
+			wrapper <- function(i){
+				fit=glmnet(t(X[-i,]),X[i,],family="poisson",lambda= lambda)
+				fit$beta=as.matrix(fit$beta)
+				if(ncol(fit$beta)<length(lambda)){
+					tmp = matrix(0,nrow = nrow(fit$beta),ncol = length(lambda))
+					tmp[,1:ncol(fit$beta)]=fit$beta
+					tmp[,ncol(fit$beta):length(lambda)] = fit$beta[,ncol(fit$beta)]
+					fit$beta = tmp
+				}
+				
+				if(i==1){
+					ghat[i,2:nrow(X),]=fit$beta
+				}else if(i==nrow(X)){
+					ghat[i,1:(nrow(X)-1),]=fit$beta
+				}else{
+					ghat[i,1:(i-1),]=fit$beta[1:(i-1),]
+					ghat[i,(i+1):nrow(X),]=fit$beta[i:nrow(fit$beta),]	
+				}
+				return(ghat[i,,])
+			}
+
+			library(multicore)
+			ghat2=mclapply(1:nrow(X),wrapper)		
+			
+			for(i in 1:nrow(X)){
+				ghat[i,,]=ghat2[[i]]
+			}
+			
+			return(ghat)
+		}
+	
+		if(parallel==F){
+			wrapper <- function(i){
+				#print(i)
+				fit=glmnet(t(X[-i,]),X[i,],family="poisson",lambda= lambda)
+				fit$beta=as.matrix(fit$beta)
+				if(ncol(fit$beta)<length(lambda)){
+					tmp = matrix(0,nrow = nrow(fit$beta),ncol = length(lambda))
+					tmp[,1:ncol(fit$beta)]=fit$beta
+					tmp[,ncol(fit$beta):length(lambda)] = fit$beta[,ncol(fit$beta)]
+					fit$beta = tmp
+				}
+				
+				if(i==1){
+					ghat[i,2:nrow(X),]=fit$beta
+				}else if(i==nrow(X)){
+					ghat[i,1:(nrow(X)-1),]=fit$bet
+				}else{
+					ghat[i,1:(i-1),]=fit$beta[1:(i-1),]
+					ghat[i,(i+1):nrow(X),]=fit$beta[i:nrow(fit$beta),]	
+				}
+				return(ghat[i,,])
+			}
+			ghat2=lapply(1:nrow(X),wrapper)	
+			for(i in 1:nrow(X)){
+				ghat[i,,]=ghat2[[i]]
+			}
+			return(ghat)
+		}
+	}
+	
+	if(length(lambda)==1){		
+		ghat=matrix(0,nrow=nrow(X),ncol=nrow(X))
+		
+		if(parallel){
+			library(snowfall)
+			sfInit(cpus=nCpus)
+			
+			sfExport("X",local=T)
+			sfExport("ghat",local=T)
+			sfLibrary(glmnet)
+		#-modify ghat
+			wrapper <- function(i){
+				fit=glmnet(t(X[-i,]),X[i,],family="poisson",lambda= lambda)
+				fit$beta=as.numeric(fit$beta)
+				if(i==1){
+					ghat[i,2:nrow(X)]=fit$beta
+				}else if(i==nrow(X)){
+					ghat[i,1:(nrow(X)-1)]=fit$beta
+				}else{
+					ghat[i,1:(i-1)]=fit$beta[1:(i-1)]
+					ghat[i,(i+1):nrow(X)]=c(fit$beta[i:length(fit$beta)])	
+				}
+				return(ghat[i,])
+			}
+			sfExport("wrapper")
+			ghat=sfSapply(1:nrow(X),wrapper)	
+			sfStop()
+			return(ghat)
+		}
+		
+# wooi question: should run this again if parallel==F?
+		for(i in 1:nrow(X)){
+			fit=glmnet(t(X[-i,]),X[i,],family="poisson",lambda= lambda)
+			fit$beta=as.numeric(fit$beta)
+			if(i==1){
+				ghat[i,2:nrow(X)]=fit$beta
+			}else if(i==nrow(X)){
+				ghat[i,1:(nrow(X)-1)]=fit$beta
+			}else{
+				ghat[i,1:(i-1)]=fit$beta[1:(i-1)]
+				ghat[i,(i+1):nrow(X)]=c(fit$beta[i:length(fit$beta)])	
+			}
+				
+		}
+		return(ghat)
+	}
+}
+
+##
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: Bsublin
+#	Desription: Sublinear function
+#	Required arguments:
+#		X				a data matrix
+#		R				upper-bound threshold value. Note, R should be great than 0
+# 	Optional argumanets:
+#		R0				lower-bound thershold value, default to 0
+#	Returned values:
+#		Bx				the transformed data matrix, of the same dimension as original data matrix X
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+Bsublin = function(X,R,R0=0)
+{
+	Bx = X
+	Bx[X>R] = (R+R0)/2
+	ind = X>R0 & X<=R
+	Bx[ind] =(-X[ind]^2 +2*R*X[ind]-R0^2)/(2*(R-R0))
+	return(Bx)
+}
+
+
+#
+#
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	The following are WPGM-related miscellaneous 
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: WPGMSim
+#	Desription: Winsorized PGM Gibbs Sampler (both positive and negatvie relationships)
+#	Required arguments:
+#		n				sample size
+#		p				variable size
+#		R 				threshold value for truncating
+#		alpha			a px1 vector
+#		Theta			a pxp symmetric matrix (only off diags matter).
+# 	Optional argumanets:
+#		maxit			iterations for Gibbs sampler, default to 10000
+#	Returned values:
+#		X				a nxp data matrix 
+#	Example:
+#		wpgm.sim <- WPGMSim(10, 3, 2, rep(0.5, 3), matrix(-1, 3,3))
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+WPGMSim = function(n, p, R, alpha, Theta, maxit=10000)
+{
+	X = matrix(rpois(n*p,1),n,p);
+	iter = 1;
+	while(iter<maxit)
+	{
+		for(j in 1:p)
+		{
+			num = exp( matrix(1,n,1)%*%t(alpha[j]*c(0:R)-log(factorial(c(0:R)))) + matrix(c(0:R)%x%X[,-j]%*%Theta[-j,j],n,R+1) );
+			Pmat = num/matrix(apply(num,1,sum),n,R+1);
+			X[,j] = apply(apply(Pmat,1,mymult)==1,2,which) - 1;
+		}
+		iter = iter + 1;
+	}
+	return(X)
+}
+
+#########
+#internal
+mymult = function(pvec){return(rmultinom(1,1,pvec))}
+
+############ select the optimum threshold lambda for a poisson network
+##### glmnet using star as selection.
+# X is the input matrix
+# X is pxn matrix 
+########################################################################
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: WPGM.select
+#	Desription: ??
+#	Required arguments:
+#		X				pxn data matrix
+# 	Optional argumanets:
+#		R 				threshold value for truncating, default to be the maximum of value of the input data matrix
+#		method			method for cross-validation, default to "star" as star selection
+#		N				number of iteration on cross-validation, default to 100
+#		beta			threshold value on sparsity of the network to filter out dense network
+#		lambda.path		numeric vector with values for the lambda on regularization
+#		nlams			number of lambda for regularization
+#		ncores			number of (maximum) cores to use for parallel execution, default to 4
+#		parallel		logical value to indicate if the process should be run parallelly in multiple threads, default to TRUE
+#	Returned values:
+#		A list of 5 elements:
+#				v				- vector of (nlams) v-variability from the cross-validation??
+#				lambda.path		- vector of all lambda used for regularization, in descending order
+#				opt.lambda		- lambda value that gives the optimal network (network with maximum variability)
+#				network			- a list of pxp coefficient matrixes modeled along the regularization path.  
+#				opt.index 		- index of the regularization value that gives the optimal network  
+#	Example:
+#		??
+#
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+WPGM.select <- function(X,R=max(X),N=100,beta=0.05,lmin=0.0001, nlams=20, lambda.path=NULL, parallel=F, ncores = 4){
+	require('huge')
+	require('glmnet')
+	
+	if(is.null(lambda.path) ){
+		lmax = lambdaMax(t(X))
+ 		lambda.path = exp(seq(log(lmax),log(lmin),l=nlams));
+	}
+	b = min(c(10*sqrt(ncol(X)), 0.8*ncol(X))) 
+	ghat=list()
+	ghat.path=list()
+	ghat.path$path=vector("list",length(lambda.path))
+	v=c()
+	
+	for(i in 1:N){
+		cat(paste("WPGM: Conducting sampling ... in progress: ", floor(100*(i/N)), "%", collapse=""),"\r")
+		flush.console()
+		index = sample(1:ncol(X),b,replace=F)
+		#tmp=glmpois(X[,index],lambda.path[j],parallel=parallel,warmStart=warmStart,nCpus=nCpus)
+		#ghat.path$raw = WPGM.network(X[,index],R,nlams=length(lambda.path),parallel=parallel ,ncores = ncores)
+		ghat.path$raw = WPGM.network(X[,index],R,nlams=length(lambda.path),lambda=lambda.path,parallel=parallel ,ncores = ncores)
+				
+		for(j in 1:length(lambda.path)){
+			tmp=ghat.path$raw[[j]]
+			tmp[abs(tmp)<1e-06]=0
+			tmp[abs(tmp)>1e-06]=1
+			diag(tmp)=0
+			if(is.null(ghat.path$path[[j]])){
+				ghat.path$path[[j]]=tmp;
+			}else{
+				ghat.path$path[[j]]=ghat.path$path[[j]]+tmp	
+			}
+		}	
+	}
+		
+	for(i in 1:length(lambda.path)){
+		D=ghat.path$path[[i]]
+		D=D/N
+		D=2*D*(1-D)
+		v=c(v,mean(D[upper.tri(D)]))	
+	}
+		
+	v=cummax(v)
+	ghat$v=v
+	ghat$lambda.path = lambda.path
+	ghat$opt.lambda = lambda.path[which(v==max(v[v<beta]))]	
+	ghat$network= WPGM.network(X,R,nlams=length(lambda.path),lambda=lambda.path,parallel=T)
+	ghat$opt.index = which(v==max(v[v<beta]))
+
+	cat("\nWPGM Completed. \n")
+
+	return(ghat)
+}
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: WPGM.network
+#	Desription: function to compute the poisson network over X
+#	Required arguments:
+#		X			a pxn data matrix (of Poisson)
+#		R			threshold value for truncating
+#		nlams		number of lambdas for regularization path
+# 	Optional argumanets:
+#		lmin		minimum lambda value, default to 0.001
+#		lambda		a vector of nlams lambda for whole regularization path, default to NULL
+#		parallel	logical value to indicate if the network build should be run parallelly in multiple threads, default to TRUE
+#		ncores		number of cores to use for parallel execution, default to 4
+#	Returned values:
+#		A list of length of the regularization path, each element of the list represent the networks estimated over the regularization path. 
+#		Each network is encoded in pxp matrix of coefficients. 
+#	Example:
+#
+#
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+WPGM.network <- function(X,R,nlams,lmin=0.001,lambda=NULL, parallel=T,ncores=4){
+	if(is.null(lambda)){
+		lmax = lambdaMax(t(X))
+		lambda = exp(seq(log(lmax),log(lmin),l=nlams));	
+	}
+	if(nlams!= length(lambda)){
+		print("nlams is not equal to lams")
+	}
+	ghat = c()
+	if(nlams>0){
+		ghat = array(0,dim=c(nrow(X),nrow(X),length(lambda)))
+	}
+	wrapper <- function(i){
+		fit = WPGM.path.neighborhood(t(X[-i,]),X[i,],R,nlams,lambda=lambda,0)
+		fit$beta=as.matrix(fit$Bmat)
+		if(i==1){
+			ghat[i,2:nrow(X),]=fit$beta
+		}
+		else if(i==nrow(X)){
+			ghat[i,1:(nrow(X)-1),]=fit$beta
+		}
+		else{
+			ghat[i,1:(i-1),]=fit$beta[1:(i-1),]
+			ghat[i,(i+1):nrow(X),]=fit$beta[i:nrow(fit$beta),]	
+		}
+		return(ghat[i,,])
+	}
+	
+	ghat2=c()
+	if(parallel){
+		library(multicore)
+		ghat2=mclapply(1:nrow(X),wrapper,mc.cores=ncores)	
+	}
+	else{
+		ghat2=lapply(1:nrow(X),wrapper)	
+	}
+	for(i in 1:nrow(X)){
+		ghat[i,,]=ghat2[[i]]
+	}
+
+	ghat=lapply(1:nlams,function(r){return(ghat[,,r])})
+	return(ghat)
+}	
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: WPGM.path.neighborhood
+#	Desription: WPGM neighborhood selection problem over a grid of lambdas
+#	Required arguments:
+#		X			a nxp data matrix
+#		Y			nx1 vector of responses (Poisson?)
+#		R			threshold value for truncating
+#		nlams		number of lambdas for regularization path (set nlams=1 to return form one value)
+# 	Optional argumanets:
+#		lmin		minimum lambda value, default to 0.01
+#		lambda		a vector of nlams lambda, default to NULL
+#		stratb		default to 0, otherwise a starting vector for [alpha beta']'
+#	Returned values:
+#		A list of:
+#			alphas - 1 x nlams vector of intercepts
+#			Bmat - p x nlams sparse matrix of coefficients
+#			lambda - the lambda values for regularization path
+#	Example:
+#
+#
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+WPGM.path.neighborhood = function(X,Y,R,nlams,lmin=0.01,lambda=NULL,startb=0)
+{
+	n = nrow(X); p = ncol(X);
+	
+	if(is.null(lambda)){
+		lmax = lambdaMax(t(X))
+		lambda = exp(seq(log(lmax),log(lmin),l=nlams));	
+	}
+	
+	if(nlams==1 & is.null(lambda)){
+		lambda = lmax
+	}
+	thr = 1e-8; maxit = 1e6;
+	Xt = cbind(t(t(rep(1,n))),X);
+	if(sum(startb)==0){bhat = matrix(rnorm(p+1)/p,p+1,1)}else{bhat=startb}
+	alphas = 0; Bmat = matrix(0,p,nlams);
+	step = .1;
+	for(i in 1:nlams){
+		ind = 1; iter = 1;  
+		while( thr<ind & iter<maxit){
+			oldb = bhat; t = 1;
+			grad = wpgmGrad(Xt,Y,R,oldb);
+			oldobj = wpgmObj(Xt,Y,R,oldb);
+			tmp = oldb - t*grad;
+			bhat[1] = tmp[1]; 
+			bhat[-1] = sign(tmp[-1])*sapply(abs(tmp[-1]) - lambda[i]*t,max,0);
+			newobj = wpgmObj(Xt,Y,R,bhat)
+			
+			while(newobj>9999999 | is.na(newobj) | is.na(newobj) ){
+				t = t/p;
+				tmp = oldb - t*grad;
+				bhat[1] = tmp[1]; 
+				bhat[-1] = sign(tmp[-1])*sapply(abs(tmp[-1]) - lambda[i]*t,max,0);
+				newobj = wpgmObj(Xt,Y,R,bhat)
+			}
+			
+			while(newobj > oldobj - t(grad)%*%(oldb - bhat) + sum((oldb - bhat)^2)/(2*t)){
+				t = t*step;
+				tmp = oldb - t*grad;
+				bhat[1] = tmp[1]; 
+				bhat[-1] = sign(tmp[-1])*sapply(abs(tmp[-1]) - lambda[i]*t,max,0);
+				newobj = wpgmObj(Xt,Y,R,bhat)
+			}
+
+			iter = iter + 1;
+			ind = sum((oldb - bhat)^2);
+		}
+		alphas[i] = bhat[1];
+		Bmat[,i] = bhat[-1];
+	}
+	
+	return(list(alpha=alphas,Bmat=Bmat,lambda=lambda))
+}
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: WPGM.neighborhood
+#	Desription: WPGM neighborhood selection problem (on one lambda)
+#	Required arguments:
+#		X			a nxp data matrix
+#		Y			nx1 vector of responses (Poisson?)
+#		R			threshold value for truncating			
+#		lam			numeric lambda value (regularization parameter)
+# 	Optional argumanets:
+#		stratb		default to 0, otherwise a starting vector for [alpha beta']'
+#	Returned values:
+#		A list of:
+#			alpha - intercept
+#			beta - vector of p coefficients
+#	Example:
+#
+#
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+WPGM.neighborhood <- function(X,Y,R,lam,startb=0)
+{
+	n = nrow(X); p = ncol(X);
+	thr = 1e-8; maxit = 1e6;
+	Xt = cbind(t(t(rep(1,n))),X);
+	if(sum(startb)==0){
+		bhat = matrix(rnorm(p+1)*.01,p+1,1)
+	}
+	else{
+		bhat=startb
+	}
+	
+	step = .1; ind = 1; iter = 1;  
+	while( thr<ind & iter<maxit){
+		oldb = bhat; t = 1;
+		grad = wpgmGrad(Xt,Y,R,oldb);
+		oldobj = wpgmObj(Xt,Y,R,oldb);
+		tmp = oldb - t*grad;
+		bhat[1] = tmp[1]; bhat[-1] = sign(tmp[-1])*sapply(abs(tmp[-1]) - lam*t,max,0);
+		while(wpgmObj(Xt,Y,R,bhat) >  oldobj - t(grad)%*%(oldb - bhat) + sum((oldb - bhat)^2)/(2*t)){
+			t = t*step;
+			tmp = oldb - t*grad;
+			bhat[1] = tmp[1]; 
+			bhat[-1] = sign(tmp[-1])*sapply(abs(tmp[-1]) - lam*t,max,0);
+		}
+		iter = iter + 1;
+		ind = sum((oldb - bhat)^2)/sum(oldb^2);
+	}
+	return(list(alpha=bhat[1],beta=bhat[-1]))
+}
+
+
+#########
+#gradient - internal
+#	Called by WPGM.neighborhood and WPGM.path.neighborhood
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: wpgmGrad
+#	Desription: gradient -internal function, called by WPGM.neighborhood and WPGM.path.neighborhood
+#	Required arguments:
+#		X			a nxp data matrix
+#		Y			nx1 vector of responses (Poisson?)
+#		R			threshold value for truncating			
+#		beta		
+#	Returned values:
+#		??
+#	Example:
+#
+#
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+wpgmGrad = function(X,Y,R,beta)
+{
+	n = nrow(X); p = ncol(X);
+	t2 = exp(matrix((0:R)%x%X%*%beta,n,R+1) - matrix(1,n,1)%*%t(matrix(log(factorial((0:R))),R+1,1)))
+	denom = apply(t2,1,sum)
+	t1 = array(t((0:R)%x%t(X)),c(n,p,R+1))
+	t3 = array(matrix(1,p,1)%x%t2,c(n,p,R+1))
+	num = apply(t1*t3,c(1,2),sum)
+	return( -t(X)%*%Y + apply(num/(denom%*%matrix(1,1,p)),2,sum))
+}
+
+
+#############
+#objective - internal
+#	Called by WPGM.neighborhood and WPGM.path.neighborhood
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: wpgmObj
+#	Desription: objective -internal function, called by WPGM.neighborhood and WPGM.path.neighborhood
+#	Required arguments:
+#		X			a nxp data matrix
+#		Y			nx1 vector of responses (Poisson?)
+#		R			threshold value for truncating			
+#		beta		
+#	Returned values:
+#		??
+#	Example:
+#
+#
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+wpgmObj = function(X,Y,R,beta)
+{
+	n = nrow(X); p = ncol(X);
+	t2 = exp(matrix((0:R)%x%X%*%beta,n,R+1) - matrix(1,n,1)%*%t(matrix(log(factorial((0:R))),R+1,1)))
+	return( -t(Y)%*%X%*%beta + sum(log(apply(t2,1,sum))))
+}
+
+
+
+
+
+
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Other miscellaneous 
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+#	Function: Copula.Norm.Pois
+#	Desription: Copula transform a matrix from normal to Poisson
+#	Required arguments:
+#		X			a nxp data matrix of Gaussians 
+#		lambda		the Poisson mean for the transformation
+# 	Optional argumanets:
+#		-			
+#	Returned values:
+#		Y			a nxp Copula transformed data matrix 
+#	Example:
+#		X <- matrix(rnorm(20), nrow=5, ncol=4)
+#		transX <- Copula.Norm.Pois(X, lambda=1)
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+Copula.Norm.Pois = function(X,lambda)
+{
+	n = nrow(X); p = ncol(X);
+	val = 0; dcuts = NULL; cnt = 0;
+	while(val<max(.9999,1-2/(n*p))){
+		val = ppois(cnt,lambda); cnt = cnt + 1;  dcuts = c(dcuts, val);
+    }
+	Y = matrix(0,n,p); oldval = min(X);
+	for(i in 1:length(dcuts)) {
+		val = quantile(X,dcuts[i]); Y[which(X<val & X>=oldval)] = i-1;
+		oldval = val;
+    }
+	Y[X==max(X)] = max(Y) + 1;
+  
+	return(Y)
+}
+
+###################
+#function to compute the maximum lambda
+#X  - nxp data matrix 
+lambdaMax <-function(X){
+	tmp = t(X)%*%X
+	return(max(	tmp[upper.tri(tmp)]))
+}

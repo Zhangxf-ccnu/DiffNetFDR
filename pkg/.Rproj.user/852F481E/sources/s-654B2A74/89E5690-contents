@@ -1,0 +1,122 @@
+# ui.R
+library(shiny)
+library(shinyBS)
+library(visNetwork)
+
+shinyUI(navbarPage("DiffNetFDR-Shiny", id="master",
+                   tabPanel("Job Setup",
+                            fluidPage(
+                              fluidRow(
+                                column(4,
+                                       fileInput("expr",
+                                                 label = "Data matrix",
+                                                 multiple = FALSE),
+                                       bsTooltip("expr",
+                                                 "Matrix of expression data, where rows correspond to genes/proteins/etc, and columns correspond to samples",
+                                                 placement = "bottom", trigger = "hover", options = NULL)
+                                )),
+
+
+
+                              fileInput("phen",
+                                        label = "Sample Group Classifiers",
+                                        multiple = FALSE),
+                              bsTooltip("phen",
+                                        "This file should contain a group classifier for each sample, in the same order as in the expression dataset(s)",
+                                        placement = "bottom", trigger = "hover", options = NULL),
+
+                              fluidRow(
+                                column(4,
+                                       fileInput("database",
+                                                 label = "Gene Set Database (optional)",
+                                                 multiple = FALSE),
+                                       bsTooltip("database",
+                                                 ".gmt or .rds file containing a list of gene sets for filtering. All data sets will be filtered using the chosen gene set, so gene identifiers must be in the same form.",
+                                                 placement = "bottom", trigger = "hover", options = NULL)
+                                ),
+                                column(8,
+                                       br(),
+                                       actionButton("loadDB",
+                                                    label = "Load gene set database")
+                                )),
+
+                              uiOutput("geneset"),
+
+                              selectInput("test.type", "Test type",
+                                          c("partial correlation" = "pcor",
+                                            "precision matrix" = "pmat")),
+
+
+
+                              numericInput("alpha",
+                                           label = "FDR level",
+                                           value = 0.2, step = 0.1),
+
+                              selectInput("parallel", "Run parallel?",
+                                          c("TRUE" = "TRUE",
+                                            "FALSE" = "FALSE")),
+
+                              numericInput("numCore",
+                                           label = "Number of Cores",
+                                           value = 1, step = 1),
+
+                              actionButton("run",
+                                           label = "Run DiffNetFDR",
+                                           style = "color: #fff; background-color: #337ab7; border-color: #2e6da4")
+                            )),
+                   tabPanel("Visualize Results",
+                            fluidPage(
+                              sidebarLayout(
+                                sidebarPanel(
+                                  numericInput("thresh",
+                                               label = "Threshold for edge inclusion",
+                                               min=0, max=1, value=0.05, step=0.001),
+                                  radioButtons("threshType", "Parameter to use for threshold",
+                                               c("p-value" = "p.val",
+                                                 "differential score" = "diff.score")),
+
+                                  numericInput("hubs",
+                                               label = "Number of rows for table",
+                                               min=1, max=30, value=10),
+
+                                  radioButtons("layout", "Network layout",
+                                               c("Circular" = "circular",
+                                                 "Fruchterman-Reingold" = "layout_with_fr"),
+                                               selected = "circular")
+                                ),
+                                mainPanel(
+
+                                  fluidRow(
+                                    column(8,
+                                           visNetworkOutput("network", width="100%"),
+                                           plotOutput("correlations", width = "100%")
+                                    ),
+
+                                    column(4,
+                                           textOutput("summary1"),
+                                           textOutput("summary2"),
+                                           br(),
+                                           tableOutput("table")
+                                    )
+                                  )
+                                )
+                              )
+                            )
+                   ),
+                   navbarMenu("More",
+                              tabPanel("Download Results",
+                                       radioButtons("fileformat",
+                                                    label = "Output File Format",
+                                                    choices = c(".rds (R object file)" = "rds",
+                                                                ".txt (tab-delimited text)" = "txt",
+                                                                ".csv (comma-separated values)" = "csv"),
+                                                    selected = "rds"),
+                                       textInput("dlname",
+                                                 label = "Output File Name (Do not include file extension)"),
+                                       downloadButton("download",
+                                                      label = "Download")
+                              )
+
+                   )
+)
+)

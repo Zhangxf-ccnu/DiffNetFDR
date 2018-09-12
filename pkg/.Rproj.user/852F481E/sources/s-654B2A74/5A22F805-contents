@@ -1,0 +1,93 @@
+rm(list = ls())
+library("glmnet")
+
+library("glmnet")
+library("igraph")
+library("huge")
+library(parallel)
+
+
+
+source("DiffNetTest.R")
+
+load("GSE13159.AML.rdata")
+X = GSE13159.AML$X[[1]]
+Y = GSE13159.AML$X[[2]]
+
+result=DiffNet.FDR(X,Y, alpha = 0.2, test.type = "pcor")
+
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*1.5, layout =layout_with_fr, 
+               vertex.color="red", vertex.label.cex=0.8, edge.width =1.5, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.                
+# grab the coordinates from tkplot
+l.dtrace <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=l.dtrace, vertex.size= degree(Diff.net.connected)*1.5, vertex.color="red", 
+     vertex.label.cex=0.9, edge.width =1.5, edge.color="orange")
+
+sort(degree(Diff.net.connected))
+
+
+
+result=DiffNet.FDR(X,Y, alpha = 0.2, test.type = "pmat")
+
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*1.5, layout =layout_with_fr, 
+               vertex.color="red", vertex.label.cex=0.8, edge.width =1.5, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.                
+# grab the coordinates from tkplot
+l.dtrace <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=l.dtrace, vertex.size= degree(Diff.net.connected)*1.5, vertex.color="red", 
+     vertex.label.cex=0.9, edge.width =1.5, edge.color="orange")
+
+sort(degree(Diff.net.connected))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+load("TCGA.BRCA.rdata")
+X = TCGA.BRCA$X[[1]]
+Y = TCGA.BRCA$X[[2]]
+
+result=DiffNet.FDR(X,Y, alpha = 0.2, test.type = "pcor")
+
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*1.5, layout =layout_with_fr, 
+               vertex.color="red", vertex.label.cex=0.8, edge.width =1.5, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.                
+# grab the coordinates from tkplot
+l.dtrace <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=l.dtrace, vertex.size= degree(Diff.net.connected)*1.5, vertex.color="red", 
+     vertex.label.cex=0.9, edge.width =1.5, edge.color="orange")
+
+sort(degree(Diff.net.connected))
+
+
+
+result=DiffNet.FDR(X,Y, alpha = 0.2, test.type = "pmat")
+
+Diff.net.connected = result$Diff.net.connected
+# Visualize the estimated differential network in an interactive manner.
+tkid <- tkplot(Diff.net.connected, vertex.size= degree(Diff.net.connected)*1.5, layout =layout_with_fr, 
+               vertex.color="red", vertex.label.cex=0.8, edge.width =1.5, edge.color="orange")
+# Visualize the estimated differential network in a non-interactive manner.                
+# grab the coordinates from tkplot
+l.dtrace <- tkplot.getcoords(tkid)
+plot(Diff.net.connected, layout=l.dtrace, vertex.size= degree(Diff.net.connected)*1.5, vertex.color="red", 
+     vertex.label.cex=0.9, edge.width =1.5, edge.color="orange")
+
+sort(degree(Diff.net.connected))
+

@@ -1,4 +1,7 @@
 rm(list=ls())
+
+library("DiffNetFDR")
+
 data("TCGA.BRCA")
 
 result = DiffNet.FDR(TCGA.BRCA$X,TCGA.BRCA$group, alpha = 0.2, test.type = "pcor")

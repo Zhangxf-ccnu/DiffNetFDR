@@ -64,41 +64,17 @@ lasso.estimator <- function(X, lam1 = seq(40,1)/20, parallel = F, nCpus = 4){
 
 
 
-#' Differential network analysis with false discovery rate control
-#' This function is implemented to infer diffferential network based on Gaussian graphical models.
-#' The differential network can be determined as the difference of partial correlations or the difference
-#' of precision matrices. The false discovery rate can be controlled using a multiple testing procedure.
-#' @param X data matrix for which the rows represent the samples and the columns represent the variables
-#' @param group vector which defines two groups of samples under comparison
-#' @param alpha desired FDR level (\eqn{0 \leq \alpha \leq 1}), default to 0.2. alpha can be a scalar or vetcor.
-#' If alpha is a scale, a signle differential network will be generated. If alapha is a vector, multiple
-#' differential networks correspoding to different FDR levels will be generated
-#' @param test.type parameter to decide which approach is selected to define the differential network, default to "pcor".
-#' If test.type = "pcor", the differential network will be inferred based on the difference of partial correlations.
-#' If test.type = "pmat", the differential network will be inferred based on the difference of precicion matrices.}
-#' @param parallel logical value to indicate if the process should be run parallelly in multiple threads, default to FALSE
-#' @param nCpus number of (maximum) cores to use for parallel execution, default to 4
-#'
-#' @return
-#' @export
-#'
-#' @examples
-DiffNet.FDR = function(X, group, alpha = 0.2, test.type = "pcor", parallel = F, nCpus = 4){
+DiffNet.FDR = function(X, Y, alpha = 0.2, test.type = "pcor", parallel = F, nCpus = 4){
 
   try(if (test.type %in% c("pcor","pmat") == FALSE) stop("The test type you provide is not include in this package."))
 
 
-  X1 = X[group==unique(group)[1],]
-  X2 = X[group==unique(group)[2],]
-
-
-
   if(test.type == "pcor"){
-    out =  DiffPCorr.test(X1, X2, alpha = alpha, parallel = parallel, nCpus = nCpus)
+    out =  DiffPCorr.test(X, Y, alpha = alpha, parallel = parallel, nCpus = nCpus)
   }
 
   if(test.type == "pmat"){
-    out =  DiffPMat.test(X1, X2, alpha = alpha, parallel = parallel, nCpus = nCpus)
+    out =  DiffPMat.test(X, Y, alpha = alpha, parallel = parallel, nCpus = nCpus)
   }
 
   return(out)
@@ -133,53 +109,31 @@ DiffPCorr.test = function(X, Y, alpha = 0.2, parallel = F, nCpus = 4){
   }
 
   k.min = which(score==min(score))
-  W.opt = WW[,,k.min]
-  diag(W.opt) = 0
+  W = WW[,,k.min]
+  diag(W) = 0
 
   M = 2000
   tt = (seq(M)/M)*2*sqrt(log(p))
   fdp = rep(NA,M)
   for (m in seq(M)){
-    fdp[m] = (2-2*pnorm(tt[m]))*((p^2-p)/2)/max(sum(abs(W.opt)>=tt[m]),1)
+    fdp[m] = (2-2*pnorm(tt[m]))*((p^2-p)/2)/max(sum(abs(W)>=tt[m]),1)
   }
 
+  id.min = min(which(fdp<=alpha))
+  t.hat = tt[id.min]
+  W = W*upper.tri(W) + t(W*upper.tri(W))
+  Diff.edge = (abs(W)>=t.hat)*1
 
-  result = list()
-  for(j in 1:length(alpha)){
+  row.names(Diff.edge) = colnames(X)
+  colnames(Diff.edge) = colnames(X)
+  Degree.Diff = apply(Diff.edge, 1, sum)
+  Diff.graph.connected = Diff.edge[Degree.Diff>0, Degree.Diff>0]
+  Diff.net.connected  = graph_from_adjacency_matrix(Diff.graph.connected, mode = "undirected", weighted = TRUE, diag = FALSE)
+  Diff.net = graph_from_adjacency_matrix(Diff.edge, mode = "undirected", weighted = TRUE, diag = FALSE)
 
-    if(length(which(fdp<=alpha[j])) ==0){
-      t.hat = 2*sqrt(log(p))
-    }else{
-      id.min = min(which(fdp<=alpha[j]))
-      t.hat = tt[id.min]
-    }
+  out = list(Diff.edge = Diff.edge, W = W, t = t.hat, Diff.net = Diff.net, Diff.net.connected = Diff.net.connected)
 
-
-
-    W = W.opt*upper.tri(W.opt) + t(W.opt*upper.tri(W.opt))
-    Diff.edge = (abs(W)>=t.hat)*1
-
-    row.names(Diff.edge) = colnames(X)
-    colnames(Diff.edge) = colnames(X)
-    Degree.Diff = apply(Diff.edge, 1, sum)
-    Diff.graph.connected = Diff.edge[Degree.Diff>0, Degree.Diff>0]
-    Diff.net.connected  = graph_from_adjacency_matrix(Diff.graph.connected, mode = "undirected", weighted = TRUE, diag = FALSE)
-    Diff.net = graph_from_adjacency_matrix(Diff.edge, mode = "undirected", weighted = TRUE, diag = FALSE)
-
-    result[[j]] = list()
-    result[[j]]$Diff.edge = Diff.edge
-    result[[j]]$W = W
-    result[[j]]$t = t.hat
-    result[[j]]$Diff.net = Diff.net
-    result[[j]]$Diff.net.connected = Diff.net.connected
-  }
-
-
-  if(length(alpha)==1){
-    result = result[[1]]
-  }
-
-  return(result)
+  return(out)
 }
 
 
@@ -217,52 +171,29 @@ DiffPMat.test = function(X, Y, alpha = 0.2, parallel = F, nCpus = 4){
 
 
   k.min = which(score==min(score))
-  W.opt = WW[,,k.min]
-  diag(W.opt) = 0
+  W = WW[,,k.min]
+  diag(W) = 0
 
   M = 2000
   tt = (seq(M)/M)*2*sqrt(log(p))
   fdp = rep(NA, M)
   for (m in seq(M)){
-    fdp[m] = (2-2*pnorm(tt[m]))*((p^2-p)/2)/max(sum(abs(W.opt)>=tt[m]),1)
+    fdp[m] = (2-2*pnorm(tt[m]))*((p^2-p)/2)/max(sum(abs(W)>=tt[m]),1)
   }
 
-  result = list()
-  for(j in 1:length(alpha)){
+  id.min = min(which(fdp<=alpha))
+  t.hat = tt[id.min]
+  W = W*upper.tri(W) + t(W*upper.tri(W))
+  Diff.edge = (abs(W)>=t.hat)*1
 
+  row.names(Diff.edge) = colnames(X)
+  colnames(Diff.edge) = colnames(X)
+  Degree.Diff = apply(Diff.edge, 1, sum)
+  Diff.graph.connected = Diff.edge[Degree.Diff>0, Degree.Diff>0]
+  Diff.net.connected  = graph_from_adjacency_matrix(Diff.graph.connected, mode = "undirected", weighted = TRUE, diag = FALSE)
+  Diff.net = graph_from_adjacency_matrix(Diff.edge, mode = "undirected", weighted = TRUE, diag = FALSE)
 
-    if(length(which(fdp<=alpha[j])) ==0){
-      t.hat = 2*sqrt(log(p))
-    }else{
-      id.min = min(which(fdp<=alpha[j]))
-      t.hat = tt[id.min]
-    }
-
-    W = W.opt*upper.tri(W.opt) + t(W.opt*upper.tri(W.opt))
-    Diff.edge = (abs(W)>=t.hat)*1
-
-
-    row.names(Diff.edge) = colnames(X)
-    colnames(Diff.edge) = colnames(X)
-    Degree.Diff = apply(Diff.edge, 1, sum)
-    Diff.graph.connected = Diff.edge[Degree.Diff>0, Degree.Diff>0]
-    Diff.net.connected  = graph_from_adjacency_matrix(Diff.graph.connected, mode = "undirected", weighted = TRUE, diag = FALSE)
-    Diff.net = graph_from_adjacency_matrix(Diff.edge, mode = "undirected", weighted = TRUE, diag = FALSE)
-
-    result[[j]] = list()
-    result[[j]]$Diff.edge = Diff.edge
-    result[[j]]$W = W
-    result[[j]]$t = t.hat
-    result[[j]]$Diff.net = Diff.net
-    result[[j]]$Diff.net.connected = Diff.net.connected
-  }
-
-
-  if(length(alpha)==1){
-    result = result[[1]]
-  }
-
-  return(result)
-
+  out = list(Diff.edge = Diff.edge, W = W, t = t.hat, Diff.net = Diff.net, Diff.net.connected = Diff.net.connected)
+  return(out)
 }
 

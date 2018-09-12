@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1521002431125.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "D623DFD1",
+    "lastKnownWriteTime" : 1507780218,
+    "last_content_update" : 1507780218,
+    "path" : "D:/work/paper/my/DiffNetTest/ref/Shiny-iDINGO-v1.1/Shiny-iDINGO-v1.1/ui.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "83,23",
+        "scrollLine" : "70"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
