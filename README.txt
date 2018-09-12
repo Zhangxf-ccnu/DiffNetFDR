@@ -11,7 +11,7 @@ This archive contains
 (5) application: subdirectory that contains codes for applying DiffNetFDR to two real datasets. Run the "RealDataApplication_demo.R" file to perform real data analysis.
 
 The DiffNetFDR package has the following R-package dependencies: glmnet, igraph, parallel.
-The depends are automatically installed along with DiffNetFDR. You can use the following commands to install DiffNetFDR from GitHub.
+The dependents are automatically installed along with DiffNetFDR. You can use the following commands to install DiffNetFDR from GitHub.
 
 
 # Step 1. Install the devtools package. Invoke R and then type
