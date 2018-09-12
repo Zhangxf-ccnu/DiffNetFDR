@@ -101,7 +101,7 @@ plot(alpha, power.pcor[,3], col = "blue", lwd=2, type = "o",
 
 
 
-
+dev.new()
 par(mfrow = c(2, 3))
 plot(alpha, FDP.pmat[,1], col = "blue", lwd=2, type = "o",
      xlim = c(-0.005, 0.505), ylim = c(-0.005, 0.505),
