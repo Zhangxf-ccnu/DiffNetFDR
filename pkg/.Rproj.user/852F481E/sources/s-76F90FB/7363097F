@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1536714730297.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "7363097F",
+    "lastKnownWriteTime" : 1536722593,
+    "last_content_update" : 1536722593,
+    "path" : "D:/work/paper/my/DiffNetTest/R_package/R_package20180912/DiffNetFDR/man/DiffNet.FDR.Rd",
+    "project_path" : "man/DiffNet.FDR.Rd",
+    "properties" : {
+        "cursorPosition" : "41,26",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_doc"
+}

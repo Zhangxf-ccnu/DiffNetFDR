@@ -1,0 +1,13 @@
+Package: DiffNetFDR
+Type: Package
+Title: DiffNetFDR: Differential Network Analysis with False Discovery
+        Rate Control
+Version: 1.1
+Author: Xiao-Fei Zhang
+Maintainer: Xiao-Fei Zhang  <zhangxf@mail.ccnu.edu.cn>
+Description: DiffNetFDR is an R package which implements two differential network analysis methods. The methods included in DiffNetFD control the overall false discovery rate at a desired level using a multiple testing procedure. 
+License: GPL (>= 2)
+Encoding: UTF-8
+NeedsCompilation: no
+Depends: R (>= 3.0), igraph, glmnet, parallel
+Packaged: 2018-09-12 01:24:57 UTC; zhang
